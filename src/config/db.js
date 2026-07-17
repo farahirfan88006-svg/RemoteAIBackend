@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import crypto from "crypto";
+
 import { env } from "./env.js";
 
 /**
@@ -35,7 +35,7 @@ export async function connectDatabase() {
     console.info("[db] MongoDB connected");
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error("[db] MongoDB connection failed:", error.message);
+    console.error("[db] MongoDB connection failed:", error);
     process.exit(1);
   }
 }
