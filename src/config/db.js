@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-const crypto = require("crypto");
+import crypto from "crypto";
 import { env } from "./env.js";
 
 /**
