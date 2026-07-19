@@ -10,3 +10,7 @@ export async function connectDB() {
     process.exit(1);
   }
 }
+
+export function isDatabaseConnected() {
+  return mongoose.connection.readyState === 1;
+}
