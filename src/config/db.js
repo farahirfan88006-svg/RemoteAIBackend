@@ -1,46 +1,72 @@
-import mongoose from "mongoose";
-
-import { env } from "./env.js";
+import { apiFetch, ApiError } from "./client";
 
 /**
- * MongoDB connection, established once at process startup and reused by
- * every model/query in the app (Mongoose maintains a single connection
- * pool internally, so there is no per-request connect/disconnect).
+ * Companies data layer, built on top of `apiFetch` (see lib/api/client.js),
+ * backed by the existing `GET /api/companies` endpoint (unmodified —
+ * see backend src/controllers/companies.controller.js), which derives its
+ * list live from whichever companies currently have active, non-expired
+ * jobs and returns `[{ name, slug, logo, jobCount }]`.
  *
- * A failed database connection is treated as fatal at startup: an API
- * server that can't reach its database has no useful work to do, so we
- * fail fast and let the host platform (Render) restart the process,
- * rather than serving requests against a connection that will only error
- * later, in a less predictable place.
+ * Same caching rationale as lib/api/taxonomy.js: this only changes as
+ * often as the sync engine adds/removes companies, so it's fetched with a
+ * longer `revalidate` window than the jobs list itself, and degrades to
+ * an empty list (rather than throwing) if the API isn't reachable.
  */
-export async function connectDatabase() {
-  mongoose.connection.on("disconnected", () => {
-    // eslint-disable-next-line no-console
-    console.warn("[db] MongoDB connection lost");
-  });
 
-  mongoose.connection.on("reconnected", () => {
-    // eslint-disable-next-line no-console
-    console.info("[db] MongoDB reconnected");
-  });
+const COMPANIES_ENDPOINT = "/companies";
+const COMPANIES_REVALIDATE_SECONDS = 300;
+
+function hasApiBaseUrl() {
+  return Boolean(process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL);
+}
+
+/**
+ * @typedef {object} CompanyOption
+ * @property {string} name - exact company name, as stored on Job.companyName
+ * @property {string} slug - stable identifier used in /jobs/company/[slug]
+ * @property {string|undefined} logo
+ * @property {number} count - number of currently active jobs at this company
+ */
+
+/** @returns {CompanyOption|null} */
+function normalizeCompanyEntry(entry) {
+  const name = entry?.name;
+  const slug = entry?.slug;
+  const count = Number(entry?.jobCount ?? entry?.count);
+  if (!name || !slug) return null;
+  return {
+    name: String(name),
+    slug: String(slug),
+    logo: entry?.logo || undefined,
+    count: Number.isFinite(count) ? count : 0,
+  };
+}
+
+/** @returns {Promise<CompanyOption[]>} companies that currently have active jobs, sorted by job count desc */
+export async function getCompanies() {
+  if (!hasApiBaseUrl()) return [];
 
   try {
-    await mongoose.connect(env.mongodbUri, {
-      // Fail within a few seconds if the cluster is unreachable, rather
-      // than hanging on Mongoose's default 30s server-selection timeout —
-      // consistent with the fail-fast philosophy applied to env vars.
-      serverSelectionTimeoutMS: 5000,
+    const data = await apiFetch(COMPANIES_ENDPOINT, {
+      init: { next: { revalidate: COMPANIES_REVALIDATE_SECONDS } },
     });
-    // eslint-disable-next-line no-console
-    console.info("[db] MongoDB connected");
+    const rows = Array.isArray(data) ? data : [];
+    return rows.map(normalizeCompanyEntry).filter(Boolean);
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error("[db] MongoDB connection failed:", error);
-    process.exit(1);
+    if (error instanceof ApiError) return [];
+    throw error;
   }
 }
 
-export function isDatabaseConnected() {
-  // readyState 1 === connected
-  return mongoose.connection.readyState === 1;
+/**
+ * Finds one company by its URL slug from an already-fetched list — avoids
+ * a second network request when the caller already loaded the full list
+ * (see app/jobs/company/[slug]/page.js).
+ *
+ * @param {CompanyOption[]} companies
+ * @param {string} slug
+ * @returns {CompanyOption|undefined}
+ */
+export function findCompanyBySlug(companies, slug) {
+  return companies.find((company) => company.slug === slug);
 }

@@ -153,6 +153,13 @@ export function serializeJob(doc) {
     tags: Array.isArray(doc.tags) ? doc.tags : [],
     sourceUrl: doc.sourceUrl || undefined,
     datePosted: doc.datePosted ? doc.datePosted.toISOString() : undefined,
+    // Added: previously omitted, even though the frontend job detail page
+    // already reads `job.indexable` for its robots meta (see
+    // remoteai/app/jobs/[slug]/page.js) and app/sitemap.js needs
+    // `updatedAt` for each job URL's `lastModified` — both were silently
+    // always `undefined` on every response before this change.
+    updatedAt: doc.updatedAt ? doc.updatedAt.toISOString() : undefined,
+    indexable: doc.indexable !== false,
   };
 }
 
