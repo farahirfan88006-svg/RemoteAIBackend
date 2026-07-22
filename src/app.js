@@ -14,6 +14,7 @@ import authRoutes from "./routes/auth.routes.js";
 import resumesRoutes from "./routes/resumes.routes.js";
 import coverLettersRoutes from "./routes/coverLetters.routes.js";
 import analyzerRoutes from "./routes/analyzer.routes.js";
+import resumeAnalyzerAIRoutes from "./routes/ai/resumeAnalyzer.routes.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -76,6 +77,9 @@ export function createApp() {
   app.use("/api/resumes", resumesRoutes);
   app.use("/api/cover-letters", coverLettersRoutes);
   app.use("/api/resume-analyzer", analyzerRoutes);
+  // Text-only, AI-service-backed Resume Analyzer (distinct from the
+  // file-upload-based /api/resume-analyzer above).
+  app.use("/api/ai/resume-analyzer", resumeAnalyzerAIRoutes);
 
   // No routes matched above -> 404, then centralized error formatting.
   app.use(notFound);
