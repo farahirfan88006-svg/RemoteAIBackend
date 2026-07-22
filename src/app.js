@@ -15,6 +15,7 @@ import resumesRoutes from "./routes/resumes.routes.js";
 import coverLettersRoutes from "./routes/coverLetters.routes.js";
 import analyzerRoutes from "./routes/analyzer.routes.js";
 import resumeAnalyzerAIRoutes from "./routes/ai/resumeAnalyzer.routes.js";
+import resumeRewriteAIRoutes from "./routes/ai/resumeRewrite.routes.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -80,6 +81,9 @@ export function createApp() {
   // Text-only, AI-service-backed Resume Analyzer (distinct from the
   // file-upload-based /api/resume-analyzer above).
   app.use("/api/ai/resume-analyzer", resumeAnalyzerAIRoutes);
+  // Text-only, AI-service-backed Resume Rewrite (tailors resume text to a
+  // target role), following the same pattern as the Resume Analyzer above.
+  app.use("/api/ai/resume-rewrite", resumeRewriteAIRoutes);
 
   // No routes matched above -> 404, then centralized error formatting.
   app.use(notFound);
