@@ -19,6 +19,7 @@ import resumeRewriteAIRoutes from "./routes/ai/resumeRewrite.routes.js";
 import careerCoachAIRoutes from "./routes/ai/careerCoach.routes.js";
 import coverLetterAIRoutes from "./routes/ai/coverLetterAI.routes.js";
 import mockInterviewAIRoutes from "./routes/ai/mockInterview.routes.js";
+import jobMatchScoreAIRoutes from "./routes/ai/jobMatchScore.routes.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -102,6 +103,13 @@ export function createApp() {
   // pattern as the Resume Analyzer / Resume Rewrite / Career Coach / Cover
   // Letter AI above.
   app.use("/api/ai/mock-interview", mockInterviewAIRoutes);
+  // Text-only, AI-service-backed Job Match Score. The score itself is
+  // always computed by a deterministic backend algorithm (skills/tech/
+  // experience/education matching); AI is used only to optionally add an
+  // explanation, improvement suggestions, and career advice on top of the
+  // already-final score, following the same pattern as the Resume Analyzer /
+  // Resume Rewrite / Career Coach / Cover Letter AI / Mock Interview above.
+  app.use("/api/ai/job-match-score", jobMatchScoreAIRoutes);
 
   // No routes matched above -> 404, then centralized error formatting.
   app.use(notFound);
