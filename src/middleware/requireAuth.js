@@ -1,53 +1,85 @@
-import User from "../models/User.js";
-import { verifyToken, isTokenRevoked } from "../services/auth.service.js";
-import { unauthorized } from "../utils/AppError.js";
-
 /**
- * Protects any route it's applied to (see routes/resumes.routes.js,
- * routes/analyzer.routes.js, and the profile routes in auth.routes.js).
+ * src/middleware/requireAuth.js
+ * ---------------------------------------------------------------------------
+ * Verifies the caller is authenticated, attaches the user document to
+ * `req.user`, and returns consistent JSON error responses otherwise.
  *
- * Expects `Authorization: Bearer <token>`. On success, attaches:
- *   req.user       - the full Mongoose User document (no passwordHash —
- *                    that field is `select: false` on the schema, and
- *                    was never requested here)
- *   req.tokenClaims - the decoded JWT payload (sub/jti/exp), in case a
- *                    handler needs the raw claims (logout uses this)
- *
- * Every failure path (missing header, malformed token, expired, revoked,
- * user no longer exists) converges on the same generic 401 — this
- * deliberately doesn't distinguish "expired" from "invalid" etc. in the
- * response, so a client can't use error-message differences to probe for
- * valid-but-expired vs. entirely-fake tokens.
+ * ASSUMPTIONS (adjust the marked lines if your existing auth flow differs):
+ *  - Token is sent as `Authorization: Bearer <token>`.
+ *  - Token is signed with `process.env.JWT_SECRET` (jsonwebtoken is already
+ *    a project dependency).
+ *  - Token payload contains the user id as `id`, `userId`, or `_id`.
+ *  - `src/models/User.js` exports a Mongoose model as its default export.
+ * ---------------------------------------------------------------------------
  */
-export async function requireAuth(req, res, next) {
+
+import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
+
+export default async function requireAuth(req, res, next) {
   try {
-    const header = req.headers.authorization || "";
-    const [scheme, token] = header.split(" ");
+    const authHeader = req.headers.authorization || '';
+    const [scheme, token] = authHeader.split(' ');
 
-    if (scheme !== "Bearer" || !token) {
-      throw unauthorized();
+    if (scheme !== 'Bearer' || !token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required. Please log in and try again.',
+        plan: null,
+        usageRemaining: null,
+        data: null,
+        errors: ['MISSING_OR_INVALID_AUTH_HEADER'],
+      });
     }
 
-    let claims;
+    let decoded;
     try {
-      claims = verifyToken(token);
-    } catch {
-      throw unauthorized();
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message: 'Your session is invalid or has expired. Please log in again.',
+        plan: null,
+        usageRemaining: null,
+        data: null,
+        errors: ['INVALID_OR_EXPIRED_TOKEN'],
+      });
     }
 
-    if (await isTokenRevoked(claims.jti)) {
-      throw unauthorized();
+    const userId = decoded.id || decoded.userId || decoded._id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Your session is invalid or has expired. Please log in again.',
+        plan: null,
+        usageRemaining: null,
+        data: null,
+        errors: ['INVALID_TOKEN_PAYLOAD'],
+      });
     }
 
-    const user = await User.findById(claims.sub);
+    const user = await User.findById(userId).select('-password');
     if (!user) {
-      throw unauthorized();
+      return res.status(401).json({
+        success: false,
+        message: 'We could not find an account for this session. Please log in again.',
+        plan: null,
+        usageRemaining: null,
+        data: null,
+        errors: ['USER_NOT_FOUND'],
+      });
     }
 
     req.user = user;
-    req.tokenClaims = claims;
-    next();
-  } catch (error) {
-    next(error);
+    return next();
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: 'Something went wrong while verifying your session.',
+      plan: null,
+      usageRemaining: null,
+      data: null,
+      errors: [err.message || 'AUTH_INTERNAL_ERROR'],
+    });
   }
 }
