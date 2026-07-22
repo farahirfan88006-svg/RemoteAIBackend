@@ -83,3 +83,14 @@ export default async function requireAuth(req, res, next) {
     });
   }
 }
+
+// FIX NOTE (stabilization pass): src/routes/auth.routes.js imports this as
+// a named export (`import { requireAuth } from ...`), while every AI route
+// under src/routes/ai/*.routes.js imports the default export
+// (`import requireAuth from ...`). Only having a default export meant
+// auth.routes.js threw a SyntaxError on import ("does not provide an
+// export named 'requireAuth'"), which — since app.js statically imports
+// auth.routes.js — broke the entire app from loading, not just the AI
+// routes. Adding this named re-export satisfies both call sites without
+// changing either one.
+export { requireAuth };

@@ -58,7 +58,7 @@ export default function incrementUsage(feature, amount = 1) {
       req.usage = {
         ...(req.usage || {}),
         feature,
-        used: usage.count,
+        used: usage.usageCount,
         currentPeriod: usage.currentPeriod,
       };
 

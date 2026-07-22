@@ -10,7 +10,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "backfill:taxonomy": "node scripts/backfillTaxonomy.js"
+    "backfill:taxonomy": "node scripts/backfillTaxonomy.js",
+    "test": "node --test tests/"
   },
   "keywords": [
     "remoteai",

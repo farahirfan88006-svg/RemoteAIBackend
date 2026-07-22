@@ -30,7 +30,7 @@ export default async function requirePremium(req, res, next) {
       });
     }
 
-    const subscription = await Subscription.findOne({ user: req.user._id });
+    const subscription = await Subscription.findOne({ userId: req.user._id });
     const plan = subscription?.plan || 'free';
     const isActive = subscription?.status ? subscription.status === 'active' : false;
     const isPremium = plan === 'premium' && isActive;

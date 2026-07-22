@@ -19,7 +19,28 @@
  * ---------------------------------------------------------------------------
  */
 
+import Subscription from '../models/Subscription.js';
 import { getRemainingUsage } from '../../lib/ai/usage/usageService.js';
+
+/**
+ * Resolves the user's real plan for usage-limiting purposes.
+ *
+ * FIX NOTE (stabilization pass): none of the six AI routes wire up
+ * requirePremium.js (which is the only other place that ever set
+ * `req.userPlan`), so this middleware previously always fell through to
+ * `req.userPlan || 'free'` — meaning even active Premium subscribers were
+ * checked against the free plan's limits. This mirrors requirePremium's
+ * own Subscription lookup (without blocking the request) so plan-aware
+ * limiting actually works regardless of which middleware ran earlier.
+ */
+async function resolvePlan(req) {
+  if (req.userPlan) return req.userPlan;
+
+  const subscription = await Subscription.findOne({ userId: req.user._id });
+  const plan = subscription?.plan || 'free';
+  const isActive = subscription?.status ? subscription.status === 'active' : false;
+  return plan === 'premium' && isActive ? 'premium' : 'free';
+}
 
 export default function checkUsageLimit(feature) {
   return async function (req, res, next) {
@@ -46,7 +67,8 @@ export default function checkUsageLimit(feature) {
         });
       }
 
-      const plan = req.userPlan || 'free';
+      const plan = await resolvePlan(req);
+      req.userPlan = plan;
       const { limit, used, remaining, unlimited } = await getRemainingUsage(
         req.user._id,
         feature,
