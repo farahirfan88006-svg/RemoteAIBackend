@@ -17,6 +17,7 @@ import analyzerRoutes from "./routes/analyzer.routes.js";
 import resumeAnalyzerAIRoutes from "./routes/ai/resumeAnalyzer.routes.js";
 import resumeRewriteAIRoutes from "./routes/ai/resumeRewrite.routes.js";
 import careerCoachAIRoutes from "./routes/ai/careerCoach.routes.js";
+import coverLetterAIRoutes from "./routes/ai/coverLetterAI.routes.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -89,6 +90,11 @@ export function createApp() {
   // learning recommendations, resume/job-search/interview advice),
   // following the same pattern as the Resume Analyzer / Resume Rewrite above.
   app.use("/api/ai/career-coach", careerCoachAIRoutes);
+  // Text-only, AI-service-backed Cover Letter generator (produces a full,
+  // personalized cover letter from applicant/resume/job/company details),
+  // following the same pattern as the Resume Analyzer / Resume Rewrite /
+  // Career Coach above.
+  app.use("/api/ai/cover-letter", coverLetterAIRoutes);
 
   // No routes matched above -> 404, then centralized error formatting.
   app.use(notFound);
