@@ -18,6 +18,7 @@ import resumeAnalyzerAIRoutes from "./routes/ai/resumeAnalyzer.routes.js";
 import resumeRewriteAIRoutes from "./routes/ai/resumeRewrite.routes.js";
 import careerCoachAIRoutes from "./routes/ai/careerCoach.routes.js";
 import coverLetterAIRoutes from "./routes/ai/coverLetterAI.routes.js";
+import mockInterviewAIRoutes from "./routes/ai/mockInterview.routes.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -95,6 +96,12 @@ export function createApp() {
   // following the same pattern as the Resume Analyzer / Resume Rewrite /
   // Career Coach above.
   app.use("/api/ai/cover-letter", coverLetterAIRoutes);
+  // Text-only, AI-service-backed Mock Interview (interview questions, model
+  // answers, evaluation criteria, improvement tips, follow-up questions, and
+  // prep advice for technical/HR/behavioral interviews), following the same
+  // pattern as the Resume Analyzer / Resume Rewrite / Career Coach / Cover
+  // Letter AI above.
+  app.use("/api/ai/mock-interview", mockInterviewAIRoutes);
 
   // No routes matched above -> 404, then centralized error formatting.
   app.use(notFound);
