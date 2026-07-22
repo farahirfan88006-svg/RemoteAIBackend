@@ -16,6 +16,7 @@ import coverLettersRoutes from "./routes/coverLetters.routes.js";
 import analyzerRoutes from "./routes/analyzer.routes.js";
 import resumeAnalyzerAIRoutes from "./routes/ai/resumeAnalyzer.routes.js";
 import resumeRewriteAIRoutes from "./routes/ai/resumeRewrite.routes.js";
+import careerCoachAIRoutes from "./routes/ai/careerCoach.routes.js";
 import { notFound } from "./middleware/notFound.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
@@ -84,6 +85,10 @@ export function createApp() {
   // Text-only, AI-service-backed Resume Rewrite (tailors resume text to a
   // target role), following the same pattern as the Resume Analyzer above.
   app.use("/api/ai/resume-rewrite", resumeRewriteAIRoutes);
+  // Text-only, AI-service-backed Career Coach (career roadmap, skills gaps,
+  // learning recommendations, resume/job-search/interview advice),
+  // following the same pattern as the Resume Analyzer / Resume Rewrite above.
+  app.use("/api/ai/career-coach", careerCoachAIRoutes);
 
   // No routes matched above -> 404, then centralized error formatting.
   app.use(notFound);
