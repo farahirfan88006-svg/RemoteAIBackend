@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { isTokenRevoked } from "../services/auth.service.js";
 
 export async function requireAuth(req, res, next) {
   try {
@@ -24,6 +25,19 @@ export async function requireAuth(req, res, next) {
         success: false,
         message: "Your session is invalid or has expired. Please log in again.",
         errors: ["INVALID_OR_EXPIRED_TOKEN"],
+      });
+    }
+
+    // FIX (stabilization pass): isTokenRevoked() already existed in
+    // auth.service.js (backed by the RevokedToken model, populated on
+    // logout) but was never actually called anywhere — meaning logout
+    // never invalidated a token; it stayed valid until natural expiry.
+    // This restores that check.
+    if (decoded.jti && (await isTokenRevoked(decoded.jti))) {
+      return res.status(401).json({
+        success: false,
+        message: "Your session has been logged out. Please log in again.",
+        errors: ["TOKEN_REVOKED"],
       });
     }
 
