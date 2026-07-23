@@ -2,6 +2,7 @@ import { env } from "./config/env.js";
 import { connectDatabase } from "./config/db.js";
 import { createApp } from "./app.js";
 import { startSyncScheduler } from "./sync/runSync.js";
+import { validateAIEnv } from "../lib/config/aiEnv.js";
 
 /**
  * Process entrypoint. This is the only file in the codebase that:
@@ -15,6 +16,10 @@ import { startSyncScheduler } from "./sync/runSync.js";
  */
 async function start() {
   await connectDatabase();
+
+  // Phase 11: warn (never block boot) about AI provider/cache/job
+  // misconfiguration so it's visible in startup logs.
+  validateAIEnv();
 
   const app = createApp();
 

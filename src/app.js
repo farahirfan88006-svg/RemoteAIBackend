@@ -1,8 +1,9 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import { env } from "./config/env.js";
+import { generalApiLimiter, aiApiLimiter } from "./middleware/rateLimiter.js";
+import { requestLoggingMiddleware } from "../lib/monitoring/metrics.js";
 import healthRoutes from "./routes/health.routes.js";
 import jobsRoutes from "./routes/jobs.routes.js";
 import searchRoutes from "./routes/search.routes.js";
@@ -53,20 +54,14 @@ export function createApp() {
 
   // Global rate limit — all current/future endpoints are public reads of
   // similar cost, so one global limiter is sufficient (see spec §14).
-  app.use(
-    rateLimit({
-      windowMs: env.rateLimitWindowMinutes * 60 * 1000,
-      max: env.rateLimitMaxRequests,
-      standardHeaders: true,
-      legacyHeaders: false,
-      message: {
-        success: false,
-        error: { code: "RATE_LIMITED", message: "Too many requests, please try again later." },
-      },
-      // Render's own uptime checks shouldn't count against real traffic.
-      skip: (req) => req.path === "/health",
-    }),
-  );
+  // (Phase 11: extracted into src/middleware/rateLimiter.js so the AI-
+  // specific limiter below it can live alongside it; behavior unchanged.)
+  app.use(generalApiLimiter);
+
+  // Phase 11: lightweight in-process request metrics (counts + response
+  // times per route) — see lib/monitoring/metrics.js. Logs nothing by
+  // itself; only feeds getMetricsSnapshot().
+  app.use(requestLoggingMiddleware);
 
   app.use(express.json());
 
@@ -82,6 +77,12 @@ export function createApp() {
   app.use("/api/resumes", resumesRoutes);
   app.use("/api/cover-letters", coverLettersRoutes);
   app.use("/api/resume-analyzer", analyzerRoutes);
+  // Phase 11: stricter rate limit for all AI-service-backed endpoints
+  // below (they're far more expensive than a typical read endpoint) —
+  // applied once, centrally, since every AI route is mounted under
+  // /api/ai/*. Does not replace or run before requireAuth/requirePremium
+  // on the individual routes; it only limits request *rate*.
+  app.use("/api/ai", aiApiLimiter);
   // Text-only, AI-service-backed Resume Analyzer (distinct from the
   // file-upload-based /api/resume-analyzer above).
   app.use("/api/ai/resume-analyzer", resumeAnalyzerAIRoutes);

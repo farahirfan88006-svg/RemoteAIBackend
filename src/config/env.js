@@ -44,6 +44,12 @@ function readEnv() {
     rateLimitWindowMinutes: Number(process.env.RATE_LIMIT_WINDOW_MINUTES) || 15,
     rateLimitMaxRequests: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 300,
 
+    // AI endpoint rate limiting (Phase 11) — stricter than the general API
+    // limiter above, applied only to /api/ai/*. Optional: both fall back to
+    // safe defaults so this never blocks boot if unset.
+    aiRateLimitWindowMinutes: Number(process.env.AI_RATE_LIMIT_WINDOW_MINUTES) || 15,
+    aiRateLimitMaxRequests: Number(process.env.AI_RATE_LIMIT_MAX_REQUESTS) || 30,
+
     // Auth (Phase 4) — JWT_SECRET is REQUIRED (see above): an auth system
     // whose token-signing secret silently defaulted to something would be
     // a real security bug, not just a missing-config inconvenience, so it
