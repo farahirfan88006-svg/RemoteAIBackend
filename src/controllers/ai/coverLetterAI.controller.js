@@ -76,17 +76,59 @@ const MAX_COMBINED_PROMPT_LENGTH =
   PROMPT_LENGTH_HEADROOM;
 
 const SYSTEM_INSTRUCTIONS =
-  "You are the Cover Letter feature of the RemoteAI platform. Given the " +
-  "applicant's name, resume text, the target company name, job title, and " +
-  "job description, write a complete, professional cover letter. Structure " +
-  "your response with these parts, in order: (1) a personalized introduction " +
-  "that names the applicant, the role, and the company, (2) a relevant " +
-  "skills section that highlights the applicant's actual experience/skills " +
-  "that match the job description, (3) a paragraph expressing genuine, " +
-  "company-specific motivation for wanting to work there, and (4) a strong " +
-  "closing paragraph with a call to action and a sign-off using the " +
-  "applicant's name. Never invent experience, employers, or qualifications " +
-  "the applicant did not mention in their resume text.";
+  "You are the Cover Letter feature of the RemoteAI platform, a premium AI " +
+  "writing assistant. You are given the applicant's name, resume text, the " +
+  "target company name, job title, and job description. Write one complete, " +
+  "recruiter-ready cover letter that reads like it was written by the " +
+  "applicant themselves, not by a template.\n\n" +
+  "GROUNDING (most important rule): every claim must trace back to the " +
+  "resume text. Never invent employers, titles, dates, tools, metrics, or " +
+  "accomplishments the applicant did not mention. If the resume is thin on " +
+  "detail, write a shorter, honest letter rather than padding it with " +
+  "invented specifics.\n\n" +
+  "PERSONALIZATION: read the job description closely and identify (a) the " +
+  "2-4 skills, tools, or accomplishments from the resume that most directly " +
+  "match what this specific job is asking for, and (b) something concrete " +
+  "and specific about the role, team, or company mission mentioned in the " +
+  "job description or company name — reference that specific detail rather " +
+  "than a generic compliment. Lead with the strongest, most relevant match, " +
+  "not just the first thing on the resume.\n\n" +
+  "ADAPT TONE TO JOB TYPE: infer the type of role and company from the job " +
+  "title, description, and tone of the posting, and shift your voice " +
+  "accordingly — e.g. leaner, energetic, ownership-focused language for an " +
+  "early-stage startup; measured, outcomes-and-scale language for a large " +
+  "enterprise; a note about independent work and clear async communication " +
+  "for a remote-first role; precise, systems-and-craft language for a " +
+  "technical/engineering role; audience-and-story language for a " +
+  "marketing/brand role. Default to a clear, confident professional tone if " +
+  "the job type isn't obvious.\n\n" +
+  "STRUCTURE (four to five short paragraphs, in order): " +
+  "(1) an opening that names the role and company and immediately signals " +
+  "genuine, specific interest — not \"I am writing to express my interest " +
+  "in...\"; " +
+  "(2) a paragraph grounding the applicant's most relevant experience, " +
+  "project, or achievement from the resume in what this job needs; " +
+  "(3) a paragraph naming the specific skills that match the job description " +
+  "and explaining, in the applicant's own logic, why that makes them a " +
+  "strong fit; " +
+  "(4) a short paragraph on genuine, company-specific motivation (skip this " +
+  "if the job description gives nothing concrete to reference); " +
+  "(5) a confident closing with a clear call to action, followed by " +
+  "\"Sincerely,\" and the applicant's name on its own line.\n\n" +
+  "WRITING QUALITY: vary sentence openings and structure; do not start " +
+  "consecutive sentences or paragraphs the same way. Avoid AI-sounding " +
+  "clichés and stock phrases entirely — do not use phrases like \"I am " +
+  "writing to express my interest\", \"I believe my skills and experience " +
+  "make me a strong fit\", \"I am confident that I would be a valuable " +
+  "asset\", \"passionate about\", \"proven track record\", \"fast-paced " +
+  "environment\" (unless the job description itself uses that exact " +
+  "phrase), \"in today's competitive job market\", \"I look forward to the " +
+  "possibility of contributing to your team\", or any close variant of " +
+  "these. Write like a sharp, specific human, not a form letter.\n\n" +
+  "FORMATTING: plain text only — no markdown, no bullet points, no " +
+  "headers, no asterisks or bold markers. Separate each paragraph with a " +
+  "single blank line. Keep the whole letter to roughly 250-400 words unless " +
+  "the resume material genuinely supports more.";
 
 /**
  * Strips whitespace/control characters that have no legitimate place in
@@ -234,36 +276,169 @@ function buildFallbackCoverLetter({ companyName, jobTitle, jobDescription, appli
   );
   const highlightSkills = (matchedSkills.length > 0 ? matchedSkills : resumeSkills).slice(0, 5);
 
-  const introduction =
-    `Dear Hiring Manager,\n\n` +
-    `My name is ${applicantName}, and I am writing to express my strong interest in the ` +
-    `${jobTitle} position at ${companyName}. Having reviewed the role's requirements, I am ` +
-    `confident that my background and experience make me a strong candidate for this opportunity.`;
+  const jobType = detectJobType(`${jobTitle} ${jobDescription}`);
+  const pick = makeDeterministicPicker(`${applicantName}|${jobTitle}|${companyName}`);
 
-  const skillsSection =
-    highlightSkills.length > 0
-      ? `${
-          matchedSkills.length > 0
-            ? "My experience aligns closely with what you are looking for, particularly in"
-            : "Throughout my career, I have built strong expertise in"
-        } ${highlightSkills.join(", ")}. I have applied these skills to deliver real results, and I am eager ` +
-        `to bring that same impact to the ${jobTitle} role.`
-      : `Throughout my career, I have developed a well-rounded skill set that I believe translates ` +
-        `directly into success in the ${jobTitle} role.`;
-
-  const motivation =
-    `What draws me to ${companyName} specifically is the opportunity to contribute to a team and ` +
-    `mission I genuinely respect. I am excited by the prospect of growing alongside ${companyName} and ` +
-    `applying my skills toward its continued success, and I am confident my background positions me to ` +
-    `make a meaningful contribution from day one.`;
-
-  const closing =
-    `I would welcome the opportunity to discuss how my background aligns with your needs at ${companyName} ` +
-    `in more detail. Thank you for considering my application — I look forward to the possibility of ` +
-    `contributing to your team.\n\n` +
-    `Sincerely,\n${applicantName}`;
+  const introduction = buildFallbackIntroduction({ applicantName, jobTitle, companyName, jobType, pick });
+  const skillsSection = buildFallbackSkillsSection({ highlightSkills, matchedSkills, jobTitle, jobType, pick });
+  const motivation = buildFallbackMotivation({ companyName, jobType, pick });
+  const closing = buildFallbackClosing({ applicantName, companyName, jobType, pick });
 
   return { introduction, skillsSection, motivation, closing, matchedSkills };
+}
+
+/**
+ * Small, dependency-free deterministic hash-based picker: the same seed
+ * always returns the same index into a given options array, so identical
+ * requests produce identical letters (stable for caching/re-generation)
+ * while different applicants/jobs don't all read like the same boilerplate.
+ * Mirrors the same approach used in src/ai/coverLetterGenerator.js.
+ *
+ * @param {string} seed
+ * @returns {(options: string[]) => string}
+ */
+function makeDeterministicPicker(seed) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return (options) => options[hash % options.length];
+}
+
+/**
+ * Infers a rough job-type category from the job title + description so the
+ * fallback letter's tone and word choice can shift accordingly. Mirrors the
+ * detector in src/ai/coverLetterGenerator.js (kept local/duplicated here
+ * rather than imported, since that module's helper isn't exported and this
+ * endpoint works off raw strings rather than structured Resume/Job data).
+ *
+ * @param {string} jobText
+ * @returns {"startup"|"enterprise"|"remote"|"technical"|"marketing"|"general"}
+ */
+function detectJobType(jobText) {
+  const text = (jobText || "").toLowerCase();
+  if (!text) return "general";
+
+  const KEYWORD_GROUPS = {
+    startup: ["startup", "seed stage", "series a", "series b", "early-stage", "early stage", "fast-paced", "small team", "founding"],
+    enterprise: ["enterprise", "fortune 500", "global organization", "large-scale", "cross-functional", "corporation", "multinational"],
+    remote: ["remote-first", "remote first", "fully remote", "work from anywhere", "distributed team", "async"],
+    marketing: ["marketing", "brand", "campaign", "seo", "content strategy", "growth marketing", "social media", "copywriting"],
+    technical: ["engineer", "engineering", "developer", "backend", "frontend", "full-stack", "software", "infrastructure", "api", "architecture"],
+  };
+
+  for (const type of ["startup", "enterprise", "remote", "marketing", "technical"]) {
+    if (KEYWORD_GROUPS[type].some((kw) => text.includes(kw))) return type;
+  }
+  return "general";
+}
+
+function buildFallbackIntroduction({ applicantName, jobTitle, companyName, jobType, pick }) {
+  const openers = {
+    startup: [
+      `My name is ${applicantName}. The ${jobTitle} role at ${companyName} caught my attention right away — I like working somewhere I can move fast and own real outcomes.`,
+      `I'm ${applicantName}, and I'm applying for the ${jobTitle} role at ${companyName}. I want to help build something early, and this looks like the right team to do it with.`,
+    ],
+    enterprise: [
+      `My name is ${applicantName}, and I'm applying for the ${jobTitle} position at ${companyName}. I'm drawn to the scale of impact a role like this can have across a large organization.`,
+      `I'm ${applicantName}. I'm writing to apply for the ${jobTitle} role at ${companyName}, having built my career delivering results in structured, cross-functional environments.`,
+    ],
+    remote: [
+      `My name is ${applicantName}, and I'm applying for the ${jobTitle} role at ${companyName}. I've built my career working independently and communicating clearly across distributed teams.`,
+      `I'm ${applicantName}. The remote-first nature of the ${jobTitle} role at ${companyName} is exactly the kind of setup where I do my best work.`,
+    ],
+    marketing: [
+      `My name is ${applicantName}, and I'm applying for the ${jobTitle} role at ${companyName}. Telling a clear, compelling story is what I do best, and I'd like to do it for your audience.`,
+      `I'm ${applicantName}. The ${jobTitle} opening at ${companyName} caught my attention immediately — I enjoy shaping the narrative behind a brand people remember.`,
+    ],
+    technical: [
+      `My name is ${applicantName}, and I'm applying for the ${jobTitle} role at ${companyName}. Solving hard technical problems is what drew me to this posting.`,
+      `I'm ${applicantName}. I'm writing to apply for the ${jobTitle} role at ${companyName} — building reliable, well-engineered systems is where I want to keep spending my time.`,
+    ],
+    general: [
+      `My name is ${applicantName}, and I'm writing to apply for the ${jobTitle} position at ${companyName}. Reading through the role, my background lines up closely with what you're looking for.`,
+      `I'm ${applicantName}. I'm excited to submit my application for the ${jobTitle} role at ${companyName} — it's a strong match for both my experience and what I want to do next.`,
+    ],
+  };
+
+  const opening = pick(openers[jobType] || openers.general);
+  return `Dear Hiring Manager,\n\n${opening}`;
+}
+
+function buildFallbackSkillsSection({ highlightSkills, matchedSkills, jobTitle, jobType, pick }) {
+  const skillsClause =
+    highlightSkills.length > 0
+      ? matchedSkills.length > 0
+        ? `what stood out to me in this posting is how closely it lines up with my hands-on work in ${formatList(highlightSkills)}`
+        : `my core strengths are in ${formatList(highlightSkills)}`
+      : `I've built a well-rounded set of skills that translates directly into the ${jobTitle} role`;
+
+  const templates = {
+    startup: [`${capitalize(skillsClause)}. I'm ready to put that directly to work in the ${jobTitle} role from day one.`],
+    enterprise: [`${capitalize(skillsClause)}. I bring that same rigor and consistency to the ${jobTitle} role.`],
+    remote: [`${capitalize(skillsClause)}. I'm looking forward to applying that experience to the ${jobTitle} role in a remote setting.`],
+    marketing: [`${capitalize(skillsClause)}. I'd bring that same eye for what resonates to the ${jobTitle} role.`],
+    technical: [`${capitalize(skillsClause)}. I'm eager to apply that depth to the ${jobTitle} role.`],
+    general: [`${capitalize(skillsClause)}. I'm confident I can apply that experience effectively in the ${jobTitle} role.`],
+  };
+
+  return pick(templates[jobType] || templates.general);
+}
+
+function buildFallbackMotivation({ companyName, jobType, pick }) {
+  const templates = {
+    startup: [
+      `What draws me to ${companyName} is the size of the problem you're taking on and the room to actually shape how it gets solved.`,
+      `${companyName} stands out to me for the pace and ownership on offer — I want a role where my decisions visibly move the product forward.`,
+    ],
+    enterprise: [
+      `${companyName}'s scale and reputation are a big part of the appeal — I want my work to hold up under real scrutiny and reach an established user base.`,
+      `What appeals to me about ${companyName} is the chance to contribute to an organization with established processes and a track record I can learn from.`,
+    ],
+    remote: [
+      `${companyName}'s remote-first approach fits how I work best — heads-down, self-directed, and communicating deliberately.`,
+      `I'm drawn to ${companyName} because remote-first is clearly built into how the team operates, and that matches how I do my best work.`,
+    ],
+    marketing: [
+      `${companyName}'s brand voice and positioning are genuinely something I admire, and I'd welcome the chance to help sharpen that story further.`,
+      `What draws me to ${companyName} is the audience you've built — I'd like to help keep that relationship growing with work that actually lands.`,
+    ],
+    technical: [
+      `${companyName}'s engineering challenges are exactly the kind of problems I find energizing to work on.`,
+      `What appeals to me about ${companyName} is the technical bar you clearly hold your team to — that's the environment I want to be pushed by.`,
+    ],
+    general: [
+      `What draws me to ${companyName} specifically is the opportunity to contribute to a team and mission I respect.`,
+      `${companyName} stood out to me while researching this role, and I'd welcome the chance to contribute to what your team is building.`,
+    ],
+  };
+
+  return pick(templates[jobType] || templates.general);
+}
+
+function buildFallbackClosing({ applicantName, companyName, jobType, pick }) {
+  const templates = {
+    startup: [`I'd welcome a conversation about where I could make the fastest impact at ${companyName}. Thanks for taking the time to review my application.`],
+    enterprise: [`I'd appreciate the opportunity to discuss how my background fits your team's needs at ${companyName}. Thank you for your time and consideration.`],
+    remote: [`I'd be glad to talk through how I could contribute to your distributed team at ${companyName}. Thank you for considering my application.`],
+    marketing: [`I'd love the chance to talk through some early ideas for your next campaign at ${companyName}. Thanks for reviewing my application.`],
+    technical: [`I'd welcome the opportunity to dig into the technical details of the role at ${companyName}. Thank you for considering my application.`],
+    general: [`I'd welcome the opportunity to discuss how my background aligns with your needs at ${companyName}. Thank you for considering my application.`],
+  };
+
+  const chosen = pick(templates[jobType] || templates.general);
+  return `${chosen}\n\nSincerely,\n${applicantName}`;
+}
+
+function formatList(items) {
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function capitalize(text) {
+  if (!text) return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /** Renders the local rule-based cover letter into a single full letter string. */
