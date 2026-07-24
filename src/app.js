@@ -14,6 +14,8 @@ import tagsRoutes from "./routes/tags.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import resumesRoutes from "./routes/resumes.routes.js";
 import coverLettersRoutes from "./routes/coverLetters.routes.js";
+import savedJobsRoutes from "./routes/savedJobs.routes.js";
+import appliedJobsRoutes from "./routes/appliedJobs.routes.js";
 import analyzerRoutes from "./routes/analyzer.routes.js";
 import resumeAnalyzerAIRoutes from "./routes/ai/resumeAnalyzer.routes.js";
 import resumeRewriteAIRoutes from "./routes/ai/resumeRewrite.routes.js";
@@ -76,6 +78,11 @@ export function createApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/resumes", resumesRoutes);
   app.use("/api/cover-letters", coverLettersRoutes);
+  // Phase 6: Saved Jobs (bookmarking) and Applied Jobs (application
+  // tracking with status) — same owner-scoped-document pattern as
+  // Resumes/CoverLetters above.
+  app.use("/api/saved-jobs", savedJobsRoutes);
+  app.use("/api/applied-jobs", appliedJobsRoutes);
   app.use("/api/resume-analyzer", analyzerRoutes);
   // Phase 11: stricter rate limit for all AI-service-backed endpoints
   // below (they're far more expensive than a typical read endpoint) —
