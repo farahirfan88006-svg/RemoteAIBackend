@@ -43,12 +43,46 @@ const MIN_RESUME_LENGTH = 50;
 const MAX_RESUME_LENGTH = 12000;
 
 const SYSTEM_INSTRUCTIONS =
-  "You are the Resume Analyzer feature of the RemoteAI platform. Given the " +
-  "candidate's raw resume text, produce a concise, actionable analysis " +
-  "covering: overall strengths, missing or weak sections, ATS-friendliness, " +
-  "and 3-5 concrete improvement suggestions. Reference the candidate's " +
-  "actual content where relevant and never invent experience, employers, " +
-  "or qualifications the candidate did not mention.";
+  "You are the Resume Analyzer inside RemoteAI — an expert resume coach and " +
+  "former technical recruiter who has screened thousands of resumes against " +
+  "real ATS pipelines. Given the candidate's raw resume text, write a " +
+  "premium, specific, and encouraging analysis — the kind a paid resume " +
+  "review service would deliver, not a generic checklist.\n\n" +
+  "Ground every observation in the candidate's actual wording: quote or " +
+  "closely paraphrase the specific line, bullet, or section you're " +
+  "commenting on so the feedback is obviously tailored to this resume, not " +
+  "boilerplate. Never invent experience, employers, titles, dates, or " +
+  "qualifications the candidate did not mention, and never fabricate a " +
+  "quote from the resume.\n\n" +
+  "Structure the response in this exact order, using Markdown:\n" +
+  "1. '## ATS Score' — a single score out of 100 on its own line as " +
+  "'**Score: NN/100 — <one-word verdict>**', followed by one sentence on " +
+  "why (e.g. missing sections, weak keyword coverage, thin metrics).\n" +
+  "2. '## Executive Summary' — 2-3 sentences giving the candidate a clear, " +
+  "honest read on where this resume stands and the single biggest lever to " +
+  "improve it.\n" +
+  "3. '## Section-by-Section Feedback' — a short subsection for each " +
+  "section actually present in the resume (e.g. Summary, Experience, " +
+  "Education, Skills), each with 1-2 sentences of specific, actionable " +
+  "feedback tied to that section's real content. Call out any core " +
+  "section (contact info, experience, education, skills) that is missing " +
+  "or too thin.\n" +
+  "4. '## ATS & Keyword Analysis' — note whether formatting is ATS-safe " +
+  "(bullet points, no tables/columns/graphics implied by the text, clear " +
+  "headings), list 3-6 relevant keywords/skills the resume already " +
+  "demonstrates, and 3-6 relevant keywords or skills for this candidate's " +
+  "apparent field that are notably absent and worth adding if genuinely " +
+  "applicable.\n" +
+  "5. '## Strengths' — 2-4 bullets on what is already working well, each " +
+  "referencing specific resume content.\n" +
+  "6. '## Top Recommendations' — exactly 3-5 prioritized, concrete " +
+  "suggestions ordered by impact, each one bullet, each actionable enough " +
+  "to apply immediately (e.g. 'Quantify the impact in your \"led a team\" " +
+  "bullet — add team size and the outcome').\n\n" +
+  "Tone: direct, warm, and specific — like a skilled human coach, not a " +
+  "corporate template. Avoid filler phrases like 'overall this is a good " +
+  "resume' without immediately following with concrete evidence. Keep the " +
+  "entire response under roughly 450 words so it stays scannable.";
 
 /**
  * Strips whitespace/control characters that have no legitimate place in
@@ -140,24 +174,55 @@ async function saveHistoryBestEffort({ user, resumeText, resultText, provider, f
   }
 }
 
-/** Renders the local rule-based analysis into a short readable summary string. */
+/**
+ * Renders the local rule-based analysis into a polished, premium-feeling
+ * Markdown report. Mirrors the structure of the AI-generated report
+ * (ATS Score -> Executive Summary -> Section-by-Section -> Keywords ->
+ * Strengths -> Recommendations) so the experience feels consistent
+ * regardless of which path (shared AI or local fallback) served the
+ * request. All data here is derived purely from `analysis` (produced by
+ * src/ai/atsAnalyzer.js) — nothing is invented.
+ */
 function buildFallbackSummaryText(analysis) {
-  const lines = [`ATS score: ${analysis.atsScore}/100`];
+  const sections = [];
 
-  if (analysis.sectionAnalysis?.missing?.length) {
-    lines.push(`Missing sections: ${analysis.sectionAnalysis.missing.join(", ")}.`);
+  const verdict = analysis.ratingLabel || (analysis.atsScore >= 70 ? "Solid" : "Needs work");
+  sections.push(`## ATS Score\n**Score: ${analysis.atsScore}/100 — ${verdict}**`);
+
+  if (analysis.summary) {
+    sections.push(`## Executive Summary\n${analysis.summary}`);
   }
+
+  if (Array.isArray(analysis.sectionFeedback) && analysis.sectionFeedback.length) {
+    const rows = analysis.sectionFeedback.map(
+      (s) => `- **${s.name}** ${s.present ? "✅" : "⚠️ Missing"} — ${s.note}`,
+    );
+    sections.push(`## Section-by-Section Feedback\n${rows.join("\n")}`);
+  }
+
+  const keywordLines = [];
   if (analysis.formattingIssues?.length) {
-    lines.push(`Formatting issues: ${analysis.formattingIssues.join(" ")}`);
+    keywordLines.push(`Formatting: ${analysis.formattingIssues.join(" ")}`);
+  }
+  if (analysis.detectedSkills?.length) {
+    keywordLines.push(`Skills already reflected: ${analysis.detectedSkills.map((s) => s.name).join(", ")}.`);
   }
   if (analysis.missingKeywords?.length) {
-    lines.push(`In-demand skills not detected: ${analysis.missingKeywords.join(", ")}.`);
+    keywordLines.push(`In-demand skills not detected: ${analysis.missingKeywords.join(", ")} — add any that genuinely apply.`);
   }
-  if (analysis.suggestions?.length) {
-    lines.push(`Suggestions:\n- ${analysis.suggestions.join("\n- ")}`);
+  if (keywordLines.length) {
+    sections.push(`## ATS & Keyword Analysis\n${keywordLines.join("\n")}`);
   }
 
-  return lines.join("\n\n");
+  if (analysis.strengths?.length) {
+    sections.push(`## Strengths\n${analysis.strengths.map((s) => `- ${s}`).join("\n")}`);
+  }
+
+  if (analysis.suggestions?.length) {
+    sections.push(`## Top Recommendations\n${analysis.suggestions.map((s) => `- ${s}`).join("\n")}`);
+  }
+
+  return sections.join("\n\n");
 }
 
 /**
